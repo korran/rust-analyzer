@@ -304,6 +304,12 @@ impl FlycheckActor {
                         }
                     }
 
+                    if matches!(self.config, FlycheckConfig::CustomCommand{invocation_strategy: InvocationStrategy::Once, ..}) {
+                        self.send(FlycheckMessage::ClearDiagnostics {
+                            id: self.id,
+                            package_id: None,
+                        });
+                    }
                     let Some(command) =
                         self.check_command(package.as_deref(), saved_file.as_deref(), target)
                     else {
@@ -345,12 +351,15 @@ impl FlycheckActor {
                         );
                     }
                     if self.package_status.is_empty() {
-                        // We finished without receiving any diagnostics.
-                        // That means all of them are stale.
-                        self.send(FlycheckMessage::ClearDiagnostics {
-                            id: self.id,
-                            package_id: None,
-                        });
+
+                        if !matches!(self.config, FlycheckConfig::CustomCommand{invocation_strategy: InvocationStrategy::Once, ..}) {
+                            // We finished without receiving any diagnostics.
+                            // That means all of them are stale.
+                            self.send(FlycheckMessage::ClearDiagnostics {
+                                id: self.id,
+                                package_id: None,
+                            });
+                        }
                     } else {
                         for (package_id, status) in mem::take(&mut self.package_status) {
                             if let DiagnosticReceived::No = status {
